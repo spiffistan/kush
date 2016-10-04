@@ -3,10 +3,14 @@ module Kush
     attr_accessor :list, :position
 
     def initialize
-      @history_file = Kush::Shell::CONFIG[:history]
+      @history_file = Shell::CONFIG[:history]
       @list = []
       read!
       @position = list.size
+    end
+
+    def self.[](count)
+      @list.last(count)
     end
 
     def reset_position

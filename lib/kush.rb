@@ -6,38 +6,37 @@ require 'shellwords'
 require_relative 'keycodes'
 require_relative 'history'
 require_relative 'completion'
+require_relative 'builtin'
 
 module Kush
   class Shell
 
     include Kush::Keycodes
 
-    attr_accessor :line, :prompt, :history
+    attr_accessor :prompt, :history
 
-    VERBOSE = false
+    VERBOSE = true
+    DEBUG = true
 
-    PS1 = '$DIR ' + 'λ '.color(:cyan)
-
-    BUILTINS = {
-      cd:   ->(directory = ENV['HOME']) { Dir.chdir(directory) },
-      exit: ->(code = 0) { exit(code.to_i) },
-      exec: ->(*command) { exec *command },
-      set:  ->(args) { key, value = args.split('='); ENV[key] = value },
-      hist: :print_history,
-      quit: :quit!
-    }
+    PS1 = '$DIR'.color(:white) + ' $LAMBDA '
 
     PROMPT_VARS = {
       CWD: -> { Dir.pwd },
-      DIR: -> { File.basename(Dir.getwd) }
+      DIR: -> { File.basename(Dir.getwd) },
+      LAMBDA: -> { λ = 'λ'.color(:cyan); λ = λ.underline if $safe; λ }
     }
 
     CONFIG = {
-      history: '.kush_history'
+      rc: '.kushrc',
+      history: '.kush_history',
+      jumper: '.kush_jumpdb'
     }
 
     def initialize
       @history = History.new
+      @builtins = Builtins.new
+      @jumper = Jumper.new
+      $safe = false
       reset_line
       set_traps!
       prompt!
@@ -47,7 +46,7 @@ module Kush
     def repl
       loop do
         read!
-        evaluate parse(line) if line.end_with?("\r")
+        evaluate(@line) if @line.end_with?("\r")
       end
     rescue StandardError => exception
       handle_exception(exception)
@@ -69,74 +68,70 @@ module Kush
       handle input
     end
 
-    def parse(line)
-      command, *args = *line.split(' ')
-      Line[command, args]
-    end
-
-    def evaluate(parsed)
-      case parsed
-      when Line[String, Array]
-        if     builtin?(parsed.command)  then builtin!(parsed.command, parsed.args)
-        elsif  ruby?(parsed.command)     then ruby!(parsed.command)
-        else   execute!(line)
+    def evaluate(line)
+      @command, *@args = *line.split(' ')
+      unless @command.empty?
+        if     builtin?(@command)    then builtin!(@command, @args)
+        # elsif  executable?(@command) then execute!(line)
+        elsif  ruby?(line)           then ruby!(line)
+        else   execute!(line) unless $safe
         end
-      else
-        # NOOP
       end
+    # rescue NameError => exception
+    #   $safe ? handle_exception(exception) : execute!(@line)
+    rescue StandardError, SyntaxError => exception
+      handle_exception(exception, @line)
     ensure
       reset_line
       history.reset_position
       prompt!
     end
 
-    def execute!(command)
-      @command = command # Remember this
+    def ruby?(line)
+      !line.strip.start_with?('/')
+    end
+
+    def ruby!(line)
+      line = line.strip.chomp
+      puts eval(line)
+      history << line if $? == 0
+    end
+
+    def execute!(line)
+      line = line.strip.chomp
       pid = fork do
         begin
-          exec line.strip.chomp
+          exec line
         rescue SystemCallError => exception
-          handle_exception(exception)
+          handle_exception(exception, @command)
           exit 1
         end
       end
       Process.wait(pid)
-      history << command.strip.chomp if $? == 0
-    end
-
-    def ruby?(word)
-      word.start_with?(':') || word.start_with?('·')
-    end
-
-    def ruby!(ruby)
-      pid = fork do
-        begin
-          result = eval(ruby[1..-1].chomp) # Chop first char, remove newline
-          puts result if result.is_a?(String)
-        rescue StandardError => exception
-          handle_exception(exception)
-        end
-      end
-      Process.wait(pid)
-      history << ruby.chomp if $? == 0
-    end
-
-    def builtin?(word)
-      BUILTINS.has_key?(word.to_sym)
+      history << line if $? == 0
     end
 
     def builtin!(builtin, args)
-      BUILTINS[builtin.to_sym].respond_to?(:call) ? BUILTINS[builtin.to_sym].call(*args) : self.send(BUILTINS[builtin.to_sym], *args)
+      Builtins.execute!(builtin.to_sym, args)
     end
 
-    def handle_exception(exception)
+    def builtin?(builtin)
+      Builtins.exist?(builtin.to_sym) && Builtins.enabled?(builtin.to_sym)
+    end
+
+    def handle_exception(exception, command=nil)
       message = begin
         case exception
-        when Errno::ENOENT then "command not found: #{@command}"
+        when Errno::ENOENT then "command not found: #{command}"
         end
       end
       puts format('kush: %s', message || exception.message).color(:red)
       puts exception.backtrace if VERBOSE
+    end
+
+    def self.method_missing(method_sym, *arguments, &block)
+      puts 'method missing!'
+      raise NotImplementedError
     end
 
     def format_prompt!
@@ -147,24 +142,31 @@ module Kush
     end
 
     def set_traps!
-      Signal.trap('INT') { quit }
+      Signal.trap('INT') { Builtins.quit! }
     end
 
     def handle(input)
       case input
-      when KEY_ESCAPE
+      when KEY_ESC
         handle_escape(input)
-      when KEY_RETURN
+      when KEY_CR
         @line << input
         puts
-      when KEY_CTRL_C
-        quit!
-      when KEY_BACKSPACE
+      when KEY_ETX
+        reset_line
+        puts
+        prompt!
+      when KEY_EOT
+        Shell.quit!
+      when KEY_DEL
         erase unless @line.empty?
       when KEY_TAB
-        write_line Kush::Completion.complete_all(@line).first unless @line.empty?
-      else # Printable
-        $stdout.print input
+        write_line Completion.complete_all(@line).first unless @line.empty?
+      when GLYPH_DOT, GLYPH_LSAQUO, GLYPH_RSAQUO, GLYPH_LAQUO, GLYPH_RAQUO # IO redirection
+        print input.color(:red)
+        @line << input
+      else # Regular printable
+        print input
         @line << input
       end
       input
@@ -174,9 +176,9 @@ module Kush
       input << STDIN.read_nonblock(3) rescue nil
       input << STDIN.read_nonblock(2) rescue nil
       case input
-      when KEY_UP
+      when ANSI_UP
         write_line history.navigate(:up)
-      when KEY_DOWN
+      when ANSI_DOWN
         write_line history.navigate(:down)
       end
     end
@@ -186,12 +188,12 @@ module Kush
       $stdout.print ("\b" * n) + (" " * n) + ("\b" * n);
     end
 
-    def reset_line
-      @line = ""
-    end
-
     def erase_line
       erase @line.size
+    end
+
+    def reset_line
+      @line = ""
     end
 
     def write_line(string)
@@ -201,37 +203,26 @@ module Kush
       print @line
     end
 
-    def print_history
-      puts history.list.last(10000)
-    end
-
-    def quit!
-      puts # Explicit newline
-      puts 'Quitting...' if VERBOSE
-      exit
-    end
-
     def debug(what)
       $stderr.puts what
     end
-  end
 
-
-  class Line
-    attr_reader :command, :args
-
-    def self.[](command, args)
-      Line.new(command, args)
+    def self.toggle_safe!
+      $safe = !$safe
     end
 
-    def initialize(command, args)
-      @command, @args = command, args
+    def self.info(text)
+      print "#{GLYPH_RANGLE * 2} ".color(:cyan)
+      puts text
     end
 
-    def ===(other)
-      command === other.command && args === other.args
+    def self.quit!
+      Jumper.save!(CONFIG[:jumper])
+      STDOUT.flush
+      STDERR.flush
+      puts
+      puts 'Quitting...' if VERBOSE
+      exit
     end
   end
 end
-
-Kush::Shell.new
