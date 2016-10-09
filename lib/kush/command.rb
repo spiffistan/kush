@@ -9,6 +9,7 @@ module Kush
     def initialize(string, input: $stdin, output: $stdout, error: $stderr, env: {})
       @string = string
       @argv = Command.clean(string).split(' ')
+      # Swap the command with the aliased command if found
       if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
         command = @argv.shift
         @argv = @argv.unshift(*Builtin::Alias[command].split(' '))
@@ -26,8 +27,8 @@ module Kush
 
     def spawn!
       pid = @process.call
-      Process.wait(pid) if program?
-      Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history) || !program?
+      Process.wait(pid) if executable?
+      Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history) || !executable?
     end
 
     def self.clean(string)
@@ -41,8 +42,8 @@ module Kush
       when builtin?
         Shell.debug 'Kind: builtin'
         proc { Builtin.execute!(@command.to_sym, @args) }
-      when Shell.unsafe? && program?
-        Shell.debug 'Kind: program'
+      when Shell.unsafe? && executable?
+        Shell.debug 'Kind: executable'
         proc { Process.spawn(@env, *@argv, @redirection) }
       else
         Shell.debug 'Kind: ruby'
@@ -66,7 +67,7 @@ module Kush
       if Builtin.exist?(command)
         :builtin
       elsif Shell.unsafe? && executable_in_path?(command)
-        :program
+        :executable
       else
         :ruby
       end
@@ -80,8 +81,8 @@ module Kush
       kind == :ruby
     end
 
-    def program?
-      kind == :program
+    def executable?
+      kind == :executable
     end
 
     def builtin?

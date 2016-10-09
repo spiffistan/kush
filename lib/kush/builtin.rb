@@ -6,6 +6,7 @@ require_relative 'builtin/exec'
 require_relative 'builtin/safe'
 require_relative 'builtin/setenv'
 require_relative 'builtin/alias'
+require_relative 'builtin/source'
 
 require_relative 'builtin/jumper'
 require_relative 'builtin/history'
@@ -20,27 +21,31 @@ module Kush
     PROTECTED = %i(quit).freeze
 
     BUILTINS = {
-      cd:   Chdir.method(:execute!).to_proc,
-      exit: Exit.method(:execute!).to_proc,
-      exec: Exec.method(:execute!).to_proc,
-      safe: Safe.method(:execute!).to_proc,
-      set:  Setenv.method(:execute!).to_proc,
+      cd:      Chdir.method(:execute!).to_proc,
+      exit:     Exit.method(:execute!).to_proc,
+      exec:     Exec.method(:execute!).to_proc,
+      safe:     Safe.method(:execute!).to_proc,
+      set:    Setenv.method(:execute!).to_proc,
+      source: Source.method(:execute!).to_proc,
       hist: ->(n = 100) { Shell.info History.last(n) },
       al:   Alias.method(:execute!).to_proc,
       als: proc { Shell.info Alias.list },
-      quit: -> { Shell.quit! },
       j:    Jumper.method(:execute!).to_proc,
       jumps: -> { Jumper.list },
+      path: -> { Shell.info ENV['PATH'].split(':') },
       enable: ->(builtin) { enable! builtin },
       disable: ->(builtin) { disable! builtin },
       enabled: -> { list_enabled },
       disabled: -> { list_disabled },
-      builtins: -> { list_all }
+      builtins: -> { list_all },
+      quit: -> { Shell.quit! }
     }.freeze
 
     def self.load!
+      @@disabled = Set.new
+      Source.load!  Shell::CONFIG[:rc]
       History.load! Shell::CONFIG[:history]
-      Jumper.load! Shell::CONFIG[:jumper]
+      Jumper.load!  Shell::CONFIG[:jumper]
     end
 
     def self.execute!(builtin, args)

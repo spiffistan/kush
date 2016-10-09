@@ -15,7 +15,7 @@ module Kush
       # Adds a directory to the jump database
       def self.add(path)
         absolute_path = File.absolute_path(path)
-        return if ignore?(absolute_path) || !File.stat(absolute_path).directory?
+        return unless File.stat(absolute_path).directory? && !ignore?(absolute_path)
         Shell.info "Added #{absolute_path} to jump db (popularity was #{jumps[absolute_path] || 0})"
         jumps[absolute_path] = (jumps[absolute_path] || 1) + 1
       end
@@ -51,13 +51,12 @@ module Kush
 
       def load!(file)
         Dir.chdir(ENV['HOME']) do
-          if File.exist?(file)
-            File.readlines(file)
-            .reject { |line| line.chomp.empty? }
-            .each do |line|
-              directory, popularity = line.split(':')
-              jumps[directory.strip] = popularity.chomp.strip.to_i
-            end
+          return unless File.exist?(file)
+          File.readlines(file)
+          .reject { |line| line.chomp.empty? }
+          .each do |line|
+            directory, popularity = line.split(':')
+            jumps[directory.strip] = popularity.chomp.strip.to_i
           end
         end
       end

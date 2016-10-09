@@ -4,6 +4,7 @@ module Kush
       extend self
 
       def self.load!(file)
+        @@list = []
         Dir.chdir(ENV['HOME']) do
           @@list = File.readlines(file).reject { |line| line.chomp.strip.empty? } if File.exist?(file)
         end

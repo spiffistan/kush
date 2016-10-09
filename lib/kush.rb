@@ -21,7 +21,6 @@ module Kush
     DEBUG = true
     DEEP_DEBUG = true
 
-
     PS1 = '$DIR'.color(:white) + ' $LAMBDA '
 
     PROMPT_VARS = {
@@ -73,68 +72,10 @@ module Kush
     def evaluate(string)
       return if string.chomp.empty?
       Line.new(string).execute!
-    #   @command, *@args = *line.split(' ')
-    #   unless @command.empty?
-    #     if     builtin?(@command)    then builtin!(@command, @args)
-    #     elsif  ruby?(line)           then ruby!(line)
-    #     else   execute!(line) unless $safe
-    #     end
-    #   end
-    # rescue NameError => exception
-    #   $safe ? handle_exception(exception) : execute!(@line)
-    # rescue StandardError, SyntaxError => exception
-    #   handle_exception(exception, @line)
     ensure
       reset_input
       Builtin::History.reset_position
       prompt!
-    end
-
-    # def ruby?(line)
-    #   !line.strip.start_with?('/')
-    # end
-
-    # def ruby!(line)
-    #   line = line.strip.chomp
-    #   puts eval(line)
-    #   Builtin::History.add(line) if $? == 0
-    # end
-
-    # def execute!(line)
-    #   line = line.strip.chomp
-    #   pid = fork do
-    #     begin
-    #       exec line
-    #     rescue SystemCallError => exception
-    #       handle_exception(exception, @command)
-    #       exit 1
-    #     end
-    #   end
-    #   Process.wait(pid)
-    #   Builtin::History.add(line) if $? == 0
-    # end
-
-    # def builtin!(builtin, args)
-    #   Builtin.execute!(builtin.to_sym, args)
-    # end
-    #
-    # def builtin?(builtin)
-    #   Builtin.exist?(builtin.to_sym) && Builtin.enabled?(builtin.to_sym)
-    # end
-
-    def handle_exception(exception, command=nil)
-      # message = begin
-      #   case exception
-      #   when Errno::ENOENT then "command not found: #{command}"
-      #   end
-      # end
-      puts format('kush: %s', exception.message).color(:red)
-      puts exception.backtrace if VERBOSE
-    end
-
-    def self.method_missing(method_sym, *arguments, &block)
-      puts 'method missing!'
-      raise NotImplementedError
     end
 
     def format_prompt!
@@ -148,6 +89,10 @@ module Kush
       Signal.trap('INT') { Shell.quit! }
     end
 
+    def handle_exception(exception)
+      puts exception.message.color(:red)
+    end
+
     def handle(input)
       case input
       when KEY_ESC
@@ -157,15 +102,16 @@ module Kush
         puts
       when KEY_ETX
         reset_input
-        puts
+        puts 'CTRL-C'.color(:purple).italic
         prompt!
       when KEY_EOT
+        puts 'CTRL-D'.color(:purple).italic
         Shell.quit!
       when KEY_DEL
         erase unless @input.empty?
       when KEY_TAB
-        write_line Completion.complete_all(@input).first unless @input.empty?
-      when GLYPH_DOT, GLYPH_LSAQUO, GLYPH_RSAQUO, GLYPH_LAQUO, GLYPH_RAQUO # IO redirection
+        write_input Builtin::Completion.complete_all(@input).first unless @input.empty?
+      when GLYPH_BULLET, GLYPH_LSAQUO, GLYPH_RSAQUO, GLYPH_LAQUO, GLYPH_RAQUO # IO redirection
         print input.color(:cyan)
         @input << input
       else # Regular printable
@@ -183,6 +129,8 @@ module Kush
         write_input Builtin::History.navigate(:up)
       when ANSI_DOWN
         write_input Builtin::History.navigate(:down)
+      when ANSI_FORWARD
+        print Shell.title!
       end
     end
 
@@ -222,6 +170,10 @@ module Kush
       !$safe
     end
 
+    def self.title!
+      OSC_LEADER + '6' + ';' + 'file://' + Dir.pwd + KEY_BEL
+    end
+
     def self.info(text, color=:cyan, io=STDOUT)
       return if text.empty?
       io.puts Array(text).map { |t| format("%s %s", "#{GLYPH_RANGLE * 2}".color(color), t.to_s.chomp) }
@@ -232,7 +184,6 @@ module Kush
       Builtin::History.save!(CONFIG[:history])
       STDOUT.flush
       STDERR.flush
-      puts
       puts 'Quitting...' if VERBOSE
       exit
     end

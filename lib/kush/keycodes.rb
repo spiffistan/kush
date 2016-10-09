@@ -10,6 +10,7 @@ module Kush
     GLYPH_BAR = '¦'
     GLYPH_LANGLE = '⟨'
     GLYPH_RANGLE = '⟩'
+    GLYPH_EOT='⌁'
 
     ASCII_SPECIALS = {
       NUL: 0x00, # Null
@@ -69,6 +70,7 @@ module Kush
       CLEAR_SCREEN: '[2J',    # Clear the screen and move cursor to home
       CURSOR_HIDE:  '[?25l',  # Hide the cursor
       CURSOR_SHOW:  '[?25h'   # Show the cursor
+
     }.freeze
     private_constant :ANSI_ESCAPES
 
@@ -77,6 +79,10 @@ module Kush
     ANSI_ESCAPES.each do |k,v|
       const_set "ANSI_#{k}", KEY_ESC + v
     end
+
+    OSC_LEADER = "#{KEY_ESC}]"
+
+
 
     ITEM_SEP = " #{GLYPH_BULLET} ".color(:cyan)
   end
