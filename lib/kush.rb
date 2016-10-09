@@ -91,6 +91,7 @@ module Kush
 
     def handle_exception(exception)
       puts exception.message.color(:red)
+      puts exception.backtrace
     end
 
     def handle(input)

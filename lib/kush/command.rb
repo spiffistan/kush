@@ -1,4 +1,5 @@
 require 'rbconfig'
+require 'shellwords'
 
 module Kush
   class Command
@@ -7,21 +8,23 @@ module Kush
     attr_reader :redirection, :env
 
     def initialize(string, input: $stdin, output: $stdout, error: $stderr, env: {})
-      @string = string
-      @argv = Command.clean(string).split(' ')
-      # Swap the command with the aliased command if found
-      if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
-        command = @argv.shift
-        @argv = @argv.unshift(*Builtin::Alias[command].split(' '))
-      end
-      @command, *@args = *@argv
       @env = env
-      @kind = lookup_kind(@command)
-      @redirection = {
-        in: input,
-        out: output,
-        err: error
-      }
+      @redirection = { in: input, out: output, err: error }
+      @string = string
+      @kind = lookup_kind(string.split(' ')[0])
+
+      case
+      when builtin?
+        @command, *@args = *Command.clean(string).shellsplit
+      when executable?
+        @argv = *Command.clean(string).shellsplit
+        # Swap the command with the aliased command if found
+        if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
+          command = @argv.shift
+          @argv.unshift(*Builtin::Alias[command].split(' '))
+        end
+      end
+
       @process = create!
     end
 
