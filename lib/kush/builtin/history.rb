@@ -21,7 +21,7 @@ module Kush
         @@list.last(count)
       end
 
-      def self.reset
+      def self.reset_position
         @@position = @@list.size
       end
 

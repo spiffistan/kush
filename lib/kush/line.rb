@@ -1,41 +1,27 @@
 require_relative 'keycodes'
 
 module Kush
-  module Shell
-    class Line
+  class Line
 
-      include Kush::Keycodes
+    include Kush::Keycodes
 
-      attr_reader :commands
+    attr_reader :commands
 
-      def initialize(string)
-        @commands = parse string
-      end
-
-      def parse(string)
-        string.split(GLYPH_DOT).each do |part|
-          @commands << Command.new(part)
-        end
-      end
+    def initialize(string)
+      parse string
     end
 
-    class Command < Line
+    def execute!
+      @commands.map(&:spawn!)
+    end
 
-      attr_reader :kind, :command, :args
+    private
 
-      def initialize(string, in=$stdin, out=$stdout)
-        @command, *@args = *string.split(' ')
-      end
-
-      private
-
-      def kind(command)
-        Kush::Completion.executable_exists?(command)
-      end
-
-      def builtin?(word)
-        Kush::Shell::BUILTINS.has_key?(word.to_sym)
-      end
+    def parse(string)
+      @commands = [Command.new(string, env: ENV)]
+      # string.split(GLYPH_DOT).each do |command|
+      #   @commands << Command.new(command)
+      # end
     end
   end
 end

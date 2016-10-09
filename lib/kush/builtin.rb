@@ -40,7 +40,7 @@ module Kush
     end
 
     def self.exist?(builtin)
-      BUILTINS.has_key?(builtin)
+      BUILTINS.has_key?(builtin.to_sym)
     end
 
     def self.disabled?(builtin)
