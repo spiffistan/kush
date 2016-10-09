@@ -20,17 +20,17 @@ module Kush
     PROTECTED = %i(quit).freeze
 
     BUILTINS = {
-      cd:   proc { Chdir.execute! },
-      exit: proc { Exit.execute! },
-      exec: proc { Exec.execute! },
-      safe: proc { Safe.execute! },
-      set:  proc { Setenv.execute! },
+      cd:   Chdir.method(:execute!).to_proc,
+      exit: Exit.method(:execute!).to_proc,
+      exec: Exec.method(:execute!).to_proc,
+      safe: Safe.method(:execute!).to_proc,
+      set:  Setenv.method(:execute!).to_proc,
       hist: ->(n = 100) { Shell.info History.last(n) },
-      al: proc { |*args| Alias.method(:execute!).call(args.join(' ')) },
+      al:   Alias.method(:execute!).to_proc,
       als: proc { Shell.info Alias.list },
       quit: -> { Shell.quit! },
-      j: ->(directory) { BUILTINS[:cd].call(Jumper.find(directory)) && Shell.info(Dir.pwd) },
-      # jumps: -> { Jumper.list },
+      j:    Jumper.method(:execute!).to_proc,
+      jumps: -> { Jumper.list },
       enable: ->(builtin) { enable! builtin },
       disable: ->(builtin) { disable! builtin },
       enabled: -> { list_enabled },
@@ -44,21 +44,21 @@ module Kush
       Jumper.load! Shell::CONFIG[:jumper]
     end
 
+    def self.execute!(builtin, args)
+      return unless enabled?(builtin)
+      BUILTINS[builtin.to_sym].call(*args)
+    end
+
     def self.exist?(builtin)
       BUILTINS.has_key?(builtin.to_sym)
     end
 
     def self.disabled?(builtin)
-      @@disabled.include?(builtin)
+      @@disabled.include?(builtin.to_sym)
     end
 
     def self.enabled?(builtin)
-      !disabled?(builtin)
-    end
-
-    def self.execute!(builtin, args)
-      return unless enabled?(builtin)
-      BUILTINS[builtin.to_sym].call(*args)
+      !disabled?(builtin.to_sym)
     end
 
     def self.disable!(builtin)
@@ -77,21 +77,26 @@ module Kush
     end
 
     def self.enabled
-      BUILTINS.keys - @@disabled
+      BUILTINS.keys - @@disabled.to_a
     end
 
     def self.list_all
       Shell.info BUILTINS.keys.map { |builtin|
         enabled?(builtin) ? builtin : builtin.to_s.color(:red).underline
-      }.join(" #{GLYPH_DOT} ".color(:cyan))
+      }.join(ITEM_SEP.color(:cyan))
     end
 
     def self.list_enabled
-      Shell.info enabled.join(', ')
+      Shell.info enabled.to_a.join(ITEM_SEP.color(:cyan))
     end
 
     def self.list_disabled
-      Shell.info disabled.join(', ')
+      Shell.info disabled.to_a.join(ITEM_SEP.color(:cyan))
+    end
+
+    def self.merge_args(args)
+      return nil if args.empty?
+      Array(args).join(' ')
     end
   end
 end

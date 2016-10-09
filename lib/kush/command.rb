@@ -41,7 +41,7 @@ module Kush
       when builtin?
         Shell.debug 'Kind: builtin'
         proc { Builtin.execute!(@command.to_sym, @args) }
-      when program?
+      when Shell.unsafe? && program? 
         Shell.debug 'Kind: program'
         proc { Process.spawn(@env, *@argv, @redirection) }
       else
@@ -65,7 +65,7 @@ module Kush
     def lookup_kind(command)
       if Builtin.exist?(command)
         :builtin
-      elsif executable_in_path?(command)
+      elsif Shell.unsafe? && executable_in_path?(command)
         :program
       else
         :ruby

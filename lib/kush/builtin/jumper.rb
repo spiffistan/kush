@@ -5,21 +5,33 @@ module Kush
 
       IGNORED = %w(/)
 
-      # Finds the most popular directory
-      def self.find(search)
-        @@jumpdb.select { |k,_| k =~ /#{search}+/ }.sort_by { |_,v| v }&.first&.first || Dir.pwd
+      def self.execute!(*args)
+        args = Builtin.merge_args(args)
+        destination = args ? (search(args) || Dir.pwd) : top
+        Shell.info "Jumping to #{destination}"
+        Dir.chdir(destination)
       end
 
       # Adds a directory to the jump database
       def self.add(path)
-        absolute_path = File.absolute_path(path) rescue nil
+        absolute_path = File.absolute_path(path)
         return if ignore?(absolute_path) || !File.stat(absolute_path).directory?
-        Shell.info "Added #{absolute_path} to jump db"
-        @@jumpdb[path] = (@@jumpdb[path] || 1) + 1
+        Shell.info "Added #{absolute_path} to jump db (popularity was #{@@jumpdb[absolute_path] || 0})"
+        @@jumpdb[absolute_path] = (@@jumpdb[absolute_path] || 1) + 1
       end
 
+      # Outputs the jump database
       def self.list
-        Shell.info @@jumpdb.sort_by { |_,v| v }
+        Shell.info @@jumpdb
+      end
+
+      # Finds the most popular directory
+      def self.top
+        @@jumpdb.max_by { |_,v| v }&.first
+      end
+
+      def self.search(string)
+        @@jumpdb.select { |k,_| k.downcase.include?(string.downcase) }.max_by { |_,v| v }&.first
       end
 
       def self.ignore?(directory)
@@ -38,10 +50,10 @@ module Kush
         Dir.chdir(ENV['HOME']) do
           if File.exist?(file)
             File.readlines(file)
-            .reject { |line| line.empty? || line == "\n" }
+            .reject { |line| line.chomp.empty? }
             .each do |line|
               directory, popularity = line.split(':')
-              @@jumpdb[directory.strip] = popularity.to_i
+              @@jumpdb[directory.strip] = popularity.chomp.strip.to_i
             end
           end
         end

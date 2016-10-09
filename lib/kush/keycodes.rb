@@ -78,5 +78,6 @@ module Kush
       const_set "ANSI_#{k}", KEY_ESC + v
     end
 
+    ITEM_SEP = " #{GLYPH_BULLET} ".color(:cyan)
   end
 end

@@ -1,5 +1,5 @@
 module Kush
-  module Builtins
+  module Builtin
     module Safe
       extend self
 

@@ -21,6 +21,7 @@ module Kush
     DEBUG = true
     DEEP_DEBUG = true
 
+
     PS1 = '$DIR'.color(:white) + ' $LAMBDA '
 
     PROMPT_VARS = {
@@ -206,19 +207,24 @@ module Kush
     end
 
     def self.deep_debug(what)
-      STDERR.print info(what, :red) if DEEP_DEBUG
+      info(what, :red, STDERR) if DEEP_DEBUG
     end
 
     def self.debug(what)
-      STDERR.print info(what, :yellow) if DEBUG
+      info(what, :yellow, STDERR) if DEBUG
     end
 
     def self.toggle_safe!
       $safe = !$safe
     end
 
-    def self.info(text, color=:cyan)
-      puts Array(text).map { |t| format("%s %s", "#{GLYPH_RANGLE * 2}".color(color), t.to_s.chomp) }
+    def self.unsafe?
+      !$safe
+    end
+
+    def self.info(text, color=:cyan, io=STDOUT)
+      return if text.empty?
+      io.puts Array(text).map { |t| format("%s %s", "#{GLYPH_RANGLE * 2}".color(color), t.to_s.chomp) }
     end
 
     def self.quit!
