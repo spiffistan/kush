@@ -5,8 +5,8 @@ module Kush
 
       include Kush::Keycodes
 
-      def self.execute!(args)
-        args = Builtin.merge_args(args)
+      def self.execute!(*args)
+        args = Builtin.merge_args(*args)
         return unless valid?(args)
         key, value = args.split('=').map(&:strip)
         return if !key =~ (/^[a-zA-Z]$/) and Shell.info("Key not valid: #{key}")

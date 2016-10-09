@@ -41,7 +41,7 @@ module Kush
       when builtin?
         Shell.debug 'Kind: builtin'
         proc { Builtin.execute!(@command.to_sym, @args) }
-      when Shell.unsafe? && program? 
+      when Shell.unsafe? && program?
         Shell.debug 'Kind: program'
         proc { Process.spawn(@env, *@argv, @redirection) }
       else
@@ -54,11 +54,11 @@ module Kush
       @env['PATH'].split(':').each do |path|
         file = "#{path}/#{command}"
         found = File.exist?(file) && File.executable?(file)
-        Shell.deep_debug("Checking: #{file}")
-        Shell.debug("Found: #{file}") if found
+        # Shell.deep_debug("Checking: #{file}")
+        # Shell.debug("Found: #{file}") if found
         return true if found
       end
-      Shell.deep_debug("Not found: #{command}")
+      # Shell.deep_debug("Not found: #{command}")
       false
     end
 

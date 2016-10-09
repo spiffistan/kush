@@ -39,7 +39,6 @@ module Kush
     }.freeze
 
     def self.load!
-      @@disabled = Set.new
       History.load! Shell::CONFIG[:history]
       Jumper.load! Shell::CONFIG[:jumper]
     end
@@ -54,7 +53,7 @@ module Kush
     end
 
     def self.disabled?(builtin)
-      @@disabled.include?(builtin.to_sym)
+      disabled.include?(builtin.to_sym)
     end
 
     def self.enabled?(builtin)
@@ -64,20 +63,20 @@ module Kush
     def self.disable!(builtin)
       return unless BUILTINS.keys.include?(builtin.to_sym)
       return if PROTECTED.include?(builtin.to_sym)
-      @@disabled.insert builtin.to_sym
+      disabled.insert builtin.to_sym
     end
 
     def self.disable!(builtin)
       return unless disabled?(builtin)
-      @@disabled.delete builtin.to_sym
+      disabled.delete builtin.to_sym
     end
 
     def self.disabled
-      @@disabled
+      @@disabled ||= Set.new
     end
 
     def self.enabled
-      BUILTINS.keys - @@disabled.to_a
+      BUILTINS.keys - disabled.to_a
     end
 
     def self.list_all
@@ -94,7 +93,7 @@ module Kush
       Shell.info disabled.to_a.join(ITEM_SEP.color(:cyan))
     end
 
-    def self.merge_args(args)
+    def self.merge_args(*args)
       return nil if args.empty?
       Array(args).join(' ')
     end

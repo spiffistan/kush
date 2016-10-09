@@ -166,7 +166,7 @@ module Kush
       when KEY_TAB
         write_line Completion.complete_all(@input).first unless @input.empty?
       when GLYPH_DOT, GLYPH_LSAQUO, GLYPH_RSAQUO, GLYPH_LAQUO, GLYPH_RAQUO # IO redirection
-        print input.color(:red)
+        print input.color(:cyan)
         @input << input
       else # Regular printable
         print input

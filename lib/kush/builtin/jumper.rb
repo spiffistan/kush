@@ -16,44 +16,47 @@ module Kush
       def self.add(path)
         absolute_path = File.absolute_path(path)
         return if ignore?(absolute_path) || !File.stat(absolute_path).directory?
-        Shell.info "Added #{absolute_path} to jump db (popularity was #{@@jumpdb[absolute_path] || 0})"
-        @@jumpdb[absolute_path] = (@@jumpdb[absolute_path] || 1) + 1
+        Shell.info "Added #{absolute_path} to jump db (popularity was #{jumps[absolute_path] || 0})"
+        jumps[absolute_path] = (jumps[absolute_path] || 1) + 1
       end
 
       # Outputs the jump database
       def self.list
-        Shell.info @@jumpdb
+        Shell.info jumps
       end
 
       # Finds the most popular directory
       def self.top
-        @@jumpdb.max_by { |_,v| v }&.first
+        jumps.max_by { |_,v| v }&.first
       end
 
       def self.search(string)
-        @@jumpdb.select { |k,_| k.downcase.include?(string.downcase) }.max_by { |_,v| v }&.first
+        jumps.select { |k,_| k.downcase.include?(string.downcase) }.max_by { |_,v| v }&.first
       end
 
       def self.ignore?(directory)
         directory.nil? || IGNORED.include?(directory)
       end
 
+      def self.jumps
+        @@jumps ||= {}
+      end
+
       def self.save!(file)
         Dir.chdir(ENV['HOME']) do
-          content = @@jumpdb.map { |k,v| "#{k}: #{v}" }.join("\n")
+          content = jumps.map { |k,v| "#{k}: #{v}" }.join("\n")
           File.open(file, 'w') { |f| f.write(content + "\n") }
         end
       end
 
       def load!(file)
-        @@jumpdb = {}
         Dir.chdir(ENV['HOME']) do
           if File.exist?(file)
             File.readlines(file)
             .reject { |line| line.chomp.empty? }
             .each do |line|
               directory, popularity = line.split(':')
-              @@jumpdb[directory.strip] = popularity.chomp.strip.to_i
+              jumps[directory.strip] = popularity.chomp.strip.to_i
             end
           end
         end
