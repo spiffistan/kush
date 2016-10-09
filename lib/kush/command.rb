@@ -9,7 +9,10 @@ module Kush
     def initialize(string, input: $stdin, output: $stdout, error: $stderr, env: {})
       @string = string
       @argv = Command.clean(string).split(' ')
-      @argv[0] = Builtin::Alias[@argv[0]] if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
+      if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
+        command = @argv.shift
+        @argv = @argv.unshift(*Builtin::Alias[command].split(' '))
+      end
       @command, *@args = *@argv
       @env = env
       @kind = lookup_kind(@command)
@@ -28,7 +31,7 @@ module Kush
     end
 
     def self.clean(string)
-      string.squeeze.chomp
+      string.squeeze(' ').chomp
     end
 
     private

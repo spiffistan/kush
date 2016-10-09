@@ -9,7 +9,7 @@ module Kush
         return unless valid?(args)
         key, value = args.split('=').map(&:strip)
         return if !key =~ (/^[a-zA-Z]$/) and Shell.info("Key not valid: #{key}")
-        aliases[key] = Command.clean(value)
+        aliases[key.to_sym] = Command.clean(value)
       end
 
       def self.exist?(name)
