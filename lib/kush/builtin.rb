@@ -5,6 +5,7 @@ require_relative 'builtin/exit'
 require_relative 'builtin/exec'
 require_relative 'builtin/safe'
 require_relative 'builtin/setenv'
+require_relative 'builtin/alias'
 
 require_relative 'builtin/jumper'
 require_relative 'builtin/history'
@@ -14,7 +15,9 @@ module Kush
   module Builtin
     extend self
 
-    PROTECTED = %i(quit)
+    include Kush::Keycodes
+
+    PROTECTED = %i(quit).freeze
 
     BUILTINS = {
       cd:   proc { Chdir.execute! },
@@ -23,6 +26,8 @@ module Kush
       safe: proc { Safe.execute! },
       set:  proc { Setenv.execute! },
       hist: ->(n = 100) { Shell.info History.last(n) },
+      al: proc { |*args| Alias.method(:execute!).call(args.join(' ')) },
+      als: proc { Shell.info Alias.list },
       quit: -> { Shell.quit! },
       j: ->(directory) { BUILTINS[:cd].call(Jumper.find(directory)) && Shell.info(Dir.pwd) },
       # jumps: -> { Jumper.list },
@@ -31,7 +36,7 @@ module Kush
       enabled: -> { list_enabled },
       disabled: -> { list_disabled },
       builtins: -> { list_all }
-    }
+    }.freeze
 
     def self.load!
       @@disabled = Set.new
@@ -76,9 +81,9 @@ module Kush
     end
 
     def self.list_all
-      Shell.info BUILTINS.keys.map do |builtin|
+      Shell.info BUILTINS.keys.map { |builtin|
         enabled?(builtin) ? builtin : builtin.to_s.color(:red).underline
-      end.join(', ')
+      }.join(" #{GLYPH_DOT} ".color(:cyan))
     end
 
     def self.list_enabled

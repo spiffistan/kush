@@ -2,6 +2,7 @@ module Kush
   module Keycodes
 
     GLYPH_DOT = '·'
+    GLYPH_BULLET = '•'
     GLYPH_LSAQUO = '‹'
     GLYPH_RSAQUO = '›'
     GLYPH_LAQUO = '«'

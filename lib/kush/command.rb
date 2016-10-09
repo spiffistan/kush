@@ -8,7 +8,8 @@ module Kush
 
     def initialize(string, input: $stdin, output: $stdout, error: $stderr, env: {})
       @string = string
-      @argv = string.squeeze(' ').chomp.split(' ')
+      @argv = Command.clean(string).split(' ')
+      @argv[0] = Builtin::Alias[@argv[0]] if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
       @command, *@args = *@argv
       @env = env
       @kind = lookup_kind(@command)
@@ -23,7 +24,11 @@ module Kush
     def spawn!
       pid = @process.call
       Process.wait(pid) if program?
-      Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history)
+      Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history) || !program?
+    end
+
+    def self.clean(string)
+      string.squeeze.chomp
     end
 
     private
@@ -46,9 +51,11 @@ module Kush
       @env['PATH'].split(':').each do |path|
         file = "#{path}/#{command}"
         found = File.exist?(file) && File.executable?(file)
+        Shell.deep_debug("Checking: #{file}")
         Shell.debug("Found: #{file}") if found
         return true if found
       end
+      Shell.deep_debug("Not found: #{command}")
       false
     end
 

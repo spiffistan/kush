@@ -19,6 +19,7 @@ module Kush
 
     VERBOSE = true
     DEBUG = true
+    DEEP_DEBUG = true
 
     PS1 = '$DIR'.color(:white) + ' $LAMBDA '
 
@@ -204,6 +205,10 @@ module Kush
       print @input
     end
 
+    def self.deep_debug(what)
+      STDERR.print info(what, :red) if DEEP_DEBUG
+    end
+
     def self.debug(what)
       STDERR.print info(what, :yellow) if DEBUG
     end
@@ -213,7 +218,7 @@ module Kush
     end
 
     def self.info(text, color=:cyan)
-      puts Array(text).map { |t| format("%s %s", "#{GLYPH_RANGLE * 2}".color(color), t.chomp) }
+      puts Array(text).map { |t| format("%s %s", "#{GLYPH_RANGLE * 2}".color(color), t.to_s.chomp) }
     end
 
     def self.quit!
