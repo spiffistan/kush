@@ -1,19 +1,19 @@
 require 'io/console'
-require 'ansi'
 require 'rainbow/ext/string'
 require 'shellwords'
+require 'set'
 
-require_relative 'keycodes'
-require_relative 'history'
-require_relative 'completion'
-require_relative 'builtin'
+require_relative 'kush/keycodes'
+require_relative 'kush/builtin'
 
 module Kush
   class Shell
 
     include Kush::Keycodes
 
-    attr_accessor :prompt, :history
+    extend Builtin
+
+    attr_accessor :prompt, :history, :disabled_builtins
 
     VERBOSE = true
     DEBUG = true
@@ -33,9 +33,8 @@ module Kush
     }
 
     def initialize
-      @history = History.new
-      @builtins = Builtins.new
-      @jumper = Jumper.new
+      @disabled_builtins = Set.new
+      Builtin.load!
       $safe = false
       reset_line
       set_traps!
@@ -77,13 +76,13 @@ module Kush
         else   execute!(line) unless $safe
         end
       end
-    # rescue NameError => exception
-    #   $safe ? handle_exception(exception) : execute!(@line)
+    rescue NameError => exception
+      $safe ? handle_exception(exception) : execute!(@line)
     rescue StandardError, SyntaxError => exception
       handle_exception(exception, @line)
     ensure
       reset_line
-      history.reset_position
+      Builtin::History.reset
       prompt!
     end
 
@@ -94,7 +93,7 @@ module Kush
     def ruby!(line)
       line = line.strip.chomp
       puts eval(line)
-      history << line if $? == 0
+      Builtin::History.add(line) if $? == 0
     end
 
     def execute!(line)
@@ -108,24 +107,24 @@ module Kush
         end
       end
       Process.wait(pid)
-      history << line if $? == 0
+      Builtin::History.add(line) if $? == 0
     end
 
     def builtin!(builtin, args)
-      Builtins.execute!(builtin.to_sym, args)
+      Builtin.execute!(builtin.to_sym, args)
     end
 
     def builtin?(builtin)
-      Builtins.exist?(builtin.to_sym) && Builtins.enabled?(builtin.to_sym)
+      Builtin.exist?(builtin.to_sym) && Builtin.enabled?(builtin.to_sym)
     end
 
     def handle_exception(exception, command=nil)
-      message = begin
-        case exception
-        when Errno::ENOENT then "command not found: #{command}"
-        end
-      end
-      puts format('kush: %s', message || exception.message).color(:red)
+      # message = begin
+      #   case exception
+      #   when Errno::ENOENT then "command not found: #{command}"
+      #   end
+      # end
+      puts format('kush: %s', exception.message).color(:red)
       puts exception.backtrace if VERBOSE
     end
 
@@ -142,7 +141,7 @@ module Kush
     end
 
     def set_traps!
-      Signal.trap('INT') { Builtins.quit! }
+      Signal.trap('INT') { Shell.quit! }
     end
 
     def handle(input)
@@ -177,9 +176,9 @@ module Kush
       input << STDIN.read_nonblock(2) rescue nil
       case input
       when ANSI_UP
-        write_line history.navigate(:up)
+        write_line Builtin::History.navigate(:up)
       when ANSI_DOWN
-        write_line history.navigate(:down)
+        write_line Builtin::History.navigate(:down)
       end
     end
 
@@ -212,12 +211,12 @@ module Kush
     end
 
     def self.info(text)
-      print "#{GLYPH_RANGLE * 2} ".color(:cyan)
-      puts text
+      puts Array(text).map { |t| format("%s %s", "#{GLYPH_RANGLE * 2}".color(:cyan), t) }.join(KEY_CR)
     end
 
     def self.quit!
-      Jumper.save!(CONFIG[:jumper])
+      Builtin::Jumper.save!(CONFIG[:jumper])
+      Builtin::History.save!(CONFIG[:history])
       STDOUT.flush
       STDERR.flush
       puts

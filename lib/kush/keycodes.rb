@@ -48,6 +48,8 @@ module Kush
     }.freeze
     private_constant :ASCII_SPECIALS
 
+    # Loops through the previous hash and sets convenience key constants
+    # of the form KEY_ESC, KEY_CR, etc.
     ASCII_SPECIALS.each do |k,v|
       const_set "KEY_#{k}", v.chr
     end
@@ -69,6 +71,8 @@ module Kush
     }.freeze
     private_constant :ANSI_ESCAPES
 
+    # Loops through the previous hash and sets convenience key constants
+    # of the form ANSI_UP, ANSI_CLEAR_EOL, etc.
     ANSI_ESCAPES.each do |k,v|
       const_set "ANSI_#{k}", KEY_ESC + v
     end
