@@ -1,4 +1,5 @@
 require 'set'
+require 'optparse'
 
 require_relative 'builtin/chdir'
 require_relative 'builtin/exit'
@@ -18,62 +19,46 @@ module Kush
 
     include Kush::Keycodes
 
-    PROTECTED = %i(quit).freeze
+    PROTECTED = %w(quit builtin).freeze
 
     BUILTINS = {
-      cd:      Chdir.method(:execute!).to_proc,
-      exit:     Exit.method(:execute!).to_proc,
-      exec:     Exec.method(:execute!).to_proc,
-      safe:     Safe.method(:execute!).to_proc,
-      set:    Setenv.method(:execute!).to_proc,
-      source: Source.method(:execute!).to_proc,
-      hist: ->(n = 100) { Shell.info History.last(n) },
-      al:   Alias.method(:execute!).to_proc,
-      als: proc { Shell.info Alias.list },
-      j:    Jumper.method(:execute!).to_proc,
-      jumps: -> { Jumper.list },
-      path: -> { Shell.info ENV['PATH'].split(':') },
-      enable: ->(builtin) { enable! builtin },
-      disable: ->(builtin) { disable! builtin },
-      enabled: -> { list_enabled },
-      disabled: -> { list_disabled },
-      builtins: -> { list_all },
-      quit: -> { Shell.quit! }
+      'builtin'  => Builtin,
+      'cd'       => Chdir,
+      'exit'     => Exit,
+      'exec'     => Exec,
+      'safe'     => Safe,
+      'set'      => Setenv,
+      'source'   => Source,
+      'al'       => Alias,
+      'j'        => Jumper,
+      'hist'     => History,
+      'als'      => Alias,
+      'path'     => -> { Shell.info ENV['PATH'].split(':') },
+      'quit'     => -> { Shell.quit! }
     }.freeze
 
-    def self.load!
+    def self.load_all!(config)
       @@disabled = Set.new
-      Source.load!  Shell::CONFIG[:rc]
-      History.load! Shell::CONFIG[:history]
-      Jumper.load!  Shell::CONFIG[:jumper]
+      # Source.load!  config[:rc]
+      History.load! config[:history]
+      Jumper.load!  config[:jumper]
     end
 
-    def self.execute!(builtin, args)
-      return unless enabled?(builtin)
-      BUILTINS[builtin.to_sym].call(*args)
-    end
-
-    def self.exist?(builtin)
-      BUILTINS.has_key?(builtin.to_sym)
+    # Handles the 'builtin' command
+    def self.execute!(*args)
+      OptionParser.new do |opt|
+        opt.on('-d', '--disable=name', String) { |name| disable! name }
+        opt.on('-e', '--enable=name',  String) { |name| enable!  name }
+        opt.on('-l', '--list')                 { list_all }
+      end.parse!(args)
     end
 
     def self.disabled?(builtin)
-      disabled.include?(builtin.to_sym)
+      disabled.include?(builtin)
     end
 
     def self.enabled?(builtin)
-      !disabled?(builtin.to_sym)
-    end
-
-    def self.disable!(builtin)
-      return unless BUILTINS.keys.include?(builtin.to_sym)
-      return if PROTECTED.include?(builtin.to_sym)
-      disabled.insert builtin.to_sym
-    end
-
-    def self.disable!(builtin)
-      return unless disabled?(builtin)
-      disabled.delete builtin.to_sym
+      !disabled?(builtin)
     end
 
     def self.disabled
@@ -90,17 +75,37 @@ module Kush
       }.join(ITEM_SEP.color(:cyan))
     end
 
-    def self.list_enabled
-      Shell.info enabled.to_a.join(ITEM_SEP.color(:cyan))
+    # Handles executions of other builtins
+    def self.builtin!(*args)
+      name, *args = *args
+      botch! "Builtin #{name} does not exist" unless exist?(name)
+      builtin = BUILTINS[name]
+      builtin.is_a?(Module) ? builtin.send(:execute!, *args) : builtin
     end
 
-    def self.list_disabled
-      Shell.info disabled.to_a.join(ITEM_SEP.color(:cyan))
+    private # __________________________________________________________________
+
+    def self.exist?(builtin)
+      BUILTINS.has_key?(builtin)
     end
 
-    def self.merge_args(*args)
-      return nil if args.empty?
-      Array(args).join(' ')
+    def self.protected?(builtin)
+      PROTECTED.include?(builtin)
+    end
+
+    def self.disable!(builtin)
+      botch! "#{builtin} is not a builtin" unless exist?(builtin)
+      botch! "#{builtin} cannot be disabled" if protected?(builtin)
+      disabled.add builtin
+    end
+
+    def self.enable!(builtin)
+      botch! "#{builtin} is already disabled" if disabled?(builtin)
+      disabled.delete builtin
+    end
+
+    def self.botch!(message)
+      STDERR.puts message.color(:red) and return
     end
   end
 end

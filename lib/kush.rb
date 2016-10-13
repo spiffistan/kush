@@ -3,31 +3,29 @@ require 'rainbow/ext/string'
 require 'shellwords'
 require 'set'
 
+require_relative 'kush/globals'
+require_relative 'kush/utils'
 require_relative 'kush/command'
+require_relative 'kush/prompt'
 require_relative 'kush/line'
 require_relative 'kush/keycodes'
+require_relative 'kush/refinements/string_extensions'
+require_relative 'kush/refinements/hash_extensions'
 require_relative 'kush/builtin'
 
 module Kush
   class Shell
 
-    include Kush::Keycodes
+    using    Refinements::HashExtensions
 
-    extend Builtin
+    extend   Utils
+    extend   Builtin
+    extend   Prompt
 
-    attr_accessor :prompt, :history
+    include  Globals
+    include  Keycodes
 
-    VERBOSE = true
-    DEBUG = true
-    DEEP_DEBUG = true
-
-    PS1 = '$DIR'.color(:white) + ' $LAMBDA '
-
-    PROMPT_VARS = {
-      CWD: -> { Dir.pwd },
-      DIR: -> { File.basename(Dir.getwd) },
-      LAMBDA: -> { λ = 'λ'.color(:cyan); λ = λ.underline if $safe; λ }
-    }
+    attr_accessor :history
 
     CONFIG = {
       rc: '.kushrc',
@@ -36,14 +34,15 @@ module Kush
     }
 
     def initialize
-      Builtin.load!
-      $safe = false
+      Builtin.load_all!(CONFIG)
       reset_input
       set_traps!
       prompt!
       repl
     end
 
+    # The main loop: reads a single character per iteration and evaluates every
+    # line ending with carriage return.
     def repl
       loop do
         read!
@@ -55,8 +54,7 @@ module Kush
     end
 
     def prompt!
-      format_prompt!
-      print @prompt
+      print Prompt.formatted!
     end
 
     def read!
@@ -78,15 +76,8 @@ module Kush
       prompt!
     end
 
-    def format_prompt!
-      @prompt = PS1.dup
-      PROMPT_VARS.each do |k, v|
-        @prompt.gsub! "$#{k}", v.respond_to?(:call) ? v.call : v
-      end
-    end
-
     def set_traps!
-      Signal.trap('INT') { Shell.quit! }
+      # NOOP
     end
 
     def handle_exception(exception)
@@ -103,10 +94,10 @@ module Kush
         puts
       when KEY_ETX
         reset_input
-        puts 'CTRL-C'.color(:purple).italic
+        puts '^C'.color(:purple).italic
         prompt!
       when KEY_EOT
-        puts 'CTRL-D'.color(:purple).italic
+        puts '^D'.color(:purple).italic
         Shell.quit!
       when KEY_DEL
         erase unless @input.empty?
@@ -130,8 +121,6 @@ module Kush
         write_input Builtin::History.navigate(:up)
       when ANSI_DOWN
         write_input Builtin::History.navigate(:down)
-      when ANSI_FORWARD
-        print Shell.title!
       end
     end
 
@@ -155,14 +144,6 @@ module Kush
       print @input
     end
 
-    def self.deep_debug(what)
-      info(what, :red, STDERR) if DEEP_DEBUG
-    end
-
-    def self.debug(what)
-      info(what, :yellow, STDERR) if DEBUG
-    end
-
     def self.toggle_safe!
       $safe = !$safe
     end
@@ -175,17 +156,12 @@ module Kush
       OSC_LEADER + '6' + ';' + 'file://' + Dir.pwd + KEY_BEL
     end
 
-    def self.info(text, color=:cyan, io=STDOUT)
-      return if text.empty?
-      io.puts Array(text).map { |t| format("%s %s", "#{GLYPH_RANGLE * 2}".color(color), t.to_s.chomp) }
-    end
-
     def self.quit!
       Builtin::Jumper.save!(CONFIG[:jumper])
       Builtin::History.save!(CONFIG[:history])
       STDOUT.flush
       STDERR.flush
-      puts 'Quitting...' if VERBOSE
+      puts 'Quitting...' if $debug
       exit
     end
   end

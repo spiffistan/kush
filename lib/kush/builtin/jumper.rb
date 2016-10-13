@@ -6,7 +6,7 @@ module Kush
       IGNORED = %w(/)
 
       def self.execute!(*args)
-        args = Builtin.merge_args(args)
+        args = Utils.merge_args(args)
         destination = args ? (search(args) || Dir.pwd) : top
         Shell.info "Jumping to #{destination}"
         Dir.chdir(destination)
@@ -22,16 +22,19 @@ module Kush
 
       # Outputs the jump database
       def self.list
-        Shell.info jumps
+        Shell.info(jumps.sort_by { |_,v| v.to_i }.reverse.map { |dir| format("%4d: %s", dir[1].to_i, dir[0]) } )
       end
 
       # Finds the most popular directory
-      def self.top
-        jumps.max_by { |_,v| v }&.first
+      def self.top(list=jumps)
+        list.max_by { |_,v| v }&.first
       end
 
       def self.search(string)
-        jumps.select { |k,_| k.downcase.include?(string.downcase) }.max_by { |_,v| v }&.first
+        basename_matches = jumps.select { |k,_| k.split('/').last.downcase.include?(string.downcase) }
+        return top(basename_matches) unless basename_matches.empty?
+        substring_matches = jumps.select { |k,_| k.downcase.include?(string.downcase) }
+        return top(substring_matches)
       end
 
       def self.ignore?(directory)

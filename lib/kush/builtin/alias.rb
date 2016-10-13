@@ -1,15 +1,16 @@
 module Kush
   module Builtin
     module Alias
-      extend self
 
-      include Kush::Keycodes
+      extend  BuiltinUtils
+      extend  Utils
+      include Keycodes
 
       def self.execute!(*args)
-        args = Builtin.merge_args(*args)
-        return unless valid?(args)
+        args = merge_args(*args)
+        botch! 'Invalid arguments' unless valid?(args)
         key, value = args.split('=').map(&:strip)
-        return if !key =~ (/^[a-zA-Z]$/) and Shell.info("Key not valid: #{key}")
+        botch! "Key not valid: #{key}" unless key =~ (/^[a-zA-Z]$/)
         aliases[key.to_sym] = Command.clean(value)
       end
 

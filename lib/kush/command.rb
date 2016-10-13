@@ -4,25 +4,28 @@ require 'shellwords'
 module Kush
   class Command
 
+    GLOBBABLE = %w(* ** { } [ ] ? \\) # NOTE: Slash is escaped
+
     attr_reader :command, :args, :kind, :process
     attr_reader :redirection, :env
 
     def initialize(string, input: $stdin, output: $stdout, error: $stderr, env: {})
+
+      shellwords = *Command.clean(string).shellsplit
+
       @env = env
       @redirection = { in: input, out: output, err: error }
       @string = string
       @kind = lookup_kind(string.split(' ')[0])
 
+      @command, *@args = shellwords
+      @argv = shellwords
+
       case
       when builtin?
-        @command, *@args = *Command.clean(string).shellsplit
       when executable?
-        @argv = *Command.clean(string).shellsplit
-        # Swap the command with the aliased command if found
-        if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
-          command = @argv.shift
-          @argv.unshift(*Builtin::Alias[command].split(' '))
-        end
+        alias!
+        glob!
       end
 
       @process = create!
@@ -32,6 +35,21 @@ module Kush
       pid = @process.call
       Process.wait(pid) if executable?
       Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history) || !executable?
+    end
+
+    # Swap the command with the aliased command if found
+    def alias!
+      if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
+        command = @argv.shift
+        @argv.unshift(*Builtin::Alias[command].split(' '))
+      end
+    end
+
+    # Swaps the globbable elements with the globbed results, flattening the result
+    def glob!
+      command = @argv.shift
+      @argv.map! { |arg| GLOBBABLE.any? { |g| arg.include?(g) } ? Dir.glob(arg) : arg }.flatten!
+      @argv.unshift(command)
     end
 
     def self.clean(string)
@@ -44,7 +62,7 @@ module Kush
       case
       when builtin?
         Shell.debug 'Kind: builtin'
-        proc { Builtin.execute!(@command.to_sym, @args) }
+        proc { Builtin.builtin!(*@argv) }
       when Shell.unsafe? && executable?
         Shell.debug 'Kind: executable'
         proc { Process.spawn(@env, *@argv, @redirection) }
@@ -58,11 +76,11 @@ module Kush
       @env['PATH'].split(':').each do |path|
         file = "#{path}/#{command}"
         found = File.exist?(file) && File.executable?(file)
-        # Shell.deep_debug("Checking: #{file}")
-        # Shell.debug("Found: #{file}") if found
+        Shell.deep_debug("Checking: #{file}")
+        Shell.debug("Found: #{file}") if found
         return true if found
       end
-      # Shell.deep_debug("Not found: #{command}")
+      Shell.deep_debug("Not found: #{command}")
       false
     end
 
