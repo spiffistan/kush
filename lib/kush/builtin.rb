@@ -54,11 +54,11 @@ module Kush
     end
 
     def self.disabled?(builtin)
-      disabled.include?(builtin)
+      disabled.include?(builtin.to_s)
     end
 
     def self.enabled?(builtin)
-      !disabled?(builtin)
+      !disabled?(builtin.to_s)
     end
 
     def self.disabled
@@ -78,7 +78,7 @@ module Kush
     # Handles executions of other builtins
     def self.builtin!(*args)
       name, *args = *args
-      botch! "Builtin #{name} does not exist" unless exist?(name)
+      botch! "Builtin #{name} does not exist" and return unless exist?(name)
       builtin = BUILTINS[name]
       builtin.is_a?(Module) ? builtin.send(:execute!, *args) : builtin
     end
@@ -94,18 +94,19 @@ module Kush
     end
 
     def self.disable!(builtin)
-      botch! "#{builtin} is not a builtin" unless exist?(builtin)
-      botch! "#{builtin} cannot be disabled" if protected?(builtin)
+      botch! "#{builtin} is not a builtin" and return unless exist?(builtin)
+      botch! "#{builtin} cannot be disabled" and return if protected?(builtin)
       disabled.add builtin
     end
 
     def self.enable!(builtin)
-      botch! "#{builtin} is already disabled" if disabled?(builtin)
+      botch! "#{builtin} is not a builtin" and return unless exist?(builtin)
+      botch! "#{builtin} is already disabled" and return if disabled?(builtin)
       disabled.delete builtin
     end
 
     def self.botch!(message)
-      STDERR.puts message.color(:red) and return
+      STDERR.puts message.color(:red)
     end
   end
 end

@@ -8,9 +8,10 @@ module Kush
 
       def self.execute!(*args)
         args = merge_args(*args)
-        botch! 'Invalid arguments' unless valid?(args)
+        botch! 'Invalid arguments' and return unless args && !args.empty? && args.include?('=')
         key, value = args.split('=').map(&:strip)
-        botch! "Key not valid: #{key}" unless key =~ (/^[a-zA-Z]$/)
+        botch! "Key not valid: #{key}" and return unless key =~ (/^[a-zA-Z]$/)
+        botch! "Value not valid: #{value}" and return unless value && !value.empty?
         aliases[key.to_sym] = Command.clean(value)
       end
 
@@ -24,10 +25,6 @@ module Kush
 
       def self.list
         aliases.empty? ? 'No aliases' : aliases.map { |k,v| "#{k} #{GLYPH_RSAQUO.color(:cyan)} #{v}" }
-      end
-
-      def self.valid?(args)
-        args && !args.empty? && args.include?('=')
       end
 
       private

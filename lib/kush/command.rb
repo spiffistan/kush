@@ -85,7 +85,7 @@ module Kush
     end
 
     def lookup_kind(command)
-      if Builtin.exist?(command)
+      if Builtin.enabled?(command)
         :builtin
       elsif Shell.unsafe? && executable_in_path?(command)
         :executable
