@@ -11,6 +11,7 @@ require_relative 'kush/line'
 require_relative 'kush/keycodes'
 require_relative 'kush/refinements/string_extensions'
 require_relative 'kush/refinements/hash_extensions'
+require_relative 'kush/builtin_utils'
 require_relative 'kush/builtin'
 
 module Kush
@@ -50,6 +51,7 @@ module Kush
       end
     rescue StandardError => exception
       handle_exception(exception)
+      prompt!
       repl
     end
 
@@ -81,8 +83,9 @@ module Kush
     end
 
     def handle_exception(exception)
+      puts # Newline
       puts exception.message.color(:red)
-      puts exception.backtrace
+      puts exception.backtrace if $backtrace
     end
 
     def handle(input)
@@ -99,6 +102,9 @@ module Kush
       when KEY_EOT
         puts '^D'.color(:purple).italic
         Shell.quit!
+      when GLYPH_TILDE
+        print input.color(:blue).bright
+        @input << input
       when KEY_DEL
         erase unless @input.empty?
       when KEY_TAB

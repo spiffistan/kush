@@ -22,6 +22,7 @@ module Kush
     PROTECTED = %w(quit builtin).freeze
 
     BUILTINS = {
+      'quit'     => -> { Shell.quit! },
       'builtin'  => Builtin,
       'cd'       => Chdir,
       'exit'     => Exit,
@@ -29,17 +30,16 @@ module Kush
       'safe'     => Safe,
       'set'      => Setenv,
       'source'   => Source,
-      'al'       => Alias,
+      'aka'      => Alias,
       'j'        => Jumper,
       'hist'     => History,
       'als'      => Alias,
-      'path'     => -> { Shell.info ENV['PATH'].split(':') },
-      'quit'     => -> { Shell.quit! }
+      'path'     => -> { Shell.info ENV['PATH'].split(':') }
     }.freeze
 
     def self.load_all!(config)
       @@disabled = Set.new
-      # Source.load!  config[:rc]
+      Source.load!  config[:rc]
       History.load! config[:history]
       Jumper.load!  config[:jumper]
     end
@@ -51,6 +51,18 @@ module Kush
         opt.on('-e', '--enable=name',  String) { |name| enable!  name }
         opt.on('-l', '--list')                 { list_all }
       end.parse!(args)
+    end
+
+    # Handles execution of other builtins
+    def self.builtin!(*args)
+      name, *args = *args
+      botch! "Builtin #{name} does not exist" unless exist?(name)
+      builtin = BUILTINS[name]
+      builtin.is_a?(Module) ? builtin.send(:execute!, *args) : builtin.call
+    end
+
+    def self.active?(builtin)
+      exist?(builtin) && enabled?(builtin)
     end
 
     def self.disabled?(builtin)
@@ -71,22 +83,16 @@ module Kush
 
     def self.list_all
       Shell.info BUILTINS.keys.map { |builtin|
-        enabled?(builtin) ? builtin : builtin.to_s.color(:red).underline
+        b = builtin.color(:red).underline if disabled?(builtin)
+        b = builtin.color(:cyan).underline if protected?(builtin)
+        b ? b : builtin
       }.join(ITEM_SEP.color(:cyan))
-    end
-
-    # Handles executions of other builtins
-    def self.builtin!(*args)
-      name, *args = *args
-      botch! "Builtin #{name} does not exist" and return unless exist?(name)
-      builtin = BUILTINS[name]
-      builtin.is_a?(Module) ? builtin.send(:execute!, *args) : builtin
     end
 
     private # __________________________________________________________________
 
     def self.exist?(builtin)
-      BUILTINS.has_key?(builtin)
+      BUILTINS.has_key?(builtin.to_s)
     end
 
     def self.protected?(builtin)
@@ -94,19 +100,15 @@ module Kush
     end
 
     def self.disable!(builtin)
-      botch! "#{builtin} is not a builtin" and return unless exist?(builtin)
-      botch! "#{builtin} cannot be disabled" and return if protected?(builtin)
+      botch! "#{builtin} is not a builtin" unless exist?(builtin)
+      botch! "#{builtin} cannot be disabled" if protected?(builtin)
       disabled.add builtin
     end
 
     def self.enable!(builtin)
-      botch! "#{builtin} is not a builtin" and return unless exist?(builtin)
-      botch! "#{builtin} is already disabled" and return if disabled?(builtin)
+      botch! "#{builtin} is not a builtin" unless exist?(builtin)
+      botch! "#{builtin} is already disabled" if disabled?(builtin)
       disabled.delete builtin
-    end
-
-    def self.botch!(message)
-      STDERR.puts message.color(:red)
     end
   end
 end

@@ -3,12 +3,14 @@ module Kush
     module Jumper
       extend self
 
+      extend Utils
+
       IGNORED = %w(/)
 
       def self.execute!(*args)
-        args = Utils.merge_args(args)
+        args = merge_args(args)
         destination = args ? (search(args) || Dir.pwd) : top
-        Shell.info "Jumping to #{destination}"
+        Shell.verbose "Jumping to #{destination}"
         Dir.chdir(destination)
       end
 
@@ -16,7 +18,7 @@ module Kush
       def self.add(path)
         absolute_path = File.absolute_path(path)
         return unless File.stat(absolute_path).directory? && !ignore?(absolute_path)
-        Shell.info "Added #{absolute_path} to jump db (popularity was #{jumps[absolute_path] || 0})"
+        Shell.verbose "Added #{absolute_path} to jump db (popularity was #{jumps[absolute_path] || 0})"
         jumps[absolute_path] = (jumps[absolute_path] || 1) + 1
       end
 

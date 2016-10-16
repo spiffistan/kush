@@ -1,6 +1,9 @@
+require 'optparse'
+
 module Kush
   module Builtin
     module Alias
+      extend self
 
       extend  BuiltinUtils
       extend  Utils
@@ -8,10 +11,10 @@ module Kush
 
       def self.execute!(*args)
         args = merge_args(*args)
-        botch! 'Invalid arguments' and return unless args && !args.empty? && args.include?('=')
+        botch! 'Invalid arguments' unless args && !args.empty? && args.include?('=')
         key, value = args.split('=').map(&:strip)
-        botch! "Key not valid: #{key}" and return unless key =~ (/^[a-zA-Z]$/)
-        botch! "Value not valid: #{value}" and return unless value && !value.empty?
+        botch! "Key not valid: #{key}" unless key =~ (/^[a-zA-Z]+$/)
+        botch! "Value not valid: #{value}" unless value && !value.empty?
         aliases[key.to_sym] = Command.clean(value)
       end
 
@@ -24,10 +27,11 @@ module Kush
       end
 
       def self.list
-        aliases.empty? ? 'No aliases' : aliases.map { |k,v| "#{k} #{GLYPH_RSAQUO.color(:cyan)} #{v}" }
+        Shell.info 'No aliases' if aliases.empty?
+        aliases.map { |k,v| "#{k} #{GLYPH_RSAQUO.color(:cyan)} #{v}" }
       end
 
-      private
+      private # ________________________________________________________________
 
       def self.aliases
         @@aliases ||= {}

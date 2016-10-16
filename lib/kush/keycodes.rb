@@ -11,6 +11,7 @@ module Kush
     GLYPH_LANGLE = '⟨'
     GLYPH_RANGLE = '⟩'
     GLYPH_EOT='⌁'
+    GLYPH_TILDE='~'
 
     ASCII_SPECIALS = {
       NUL: 0x00, # Null

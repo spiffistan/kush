@@ -4,5 +4,6 @@ module Kush
     $debug = true
     $deep_debug = true
     $safe = false
+    $backtrace = true
   end
 end

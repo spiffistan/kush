@@ -6,26 +6,28 @@ module Kush
 
     GLOBBABLE = %w(* ** { } [ ] ? \\) # NOTE: Slash is escaped
 
+    MAGIC = {
+      '~' => ENV['HOME']
+    }
+
     attr_reader :command, :args, :kind, :process
     attr_reader :redirection, :env
 
     def initialize(string, input: $stdin, output: $stdout, error: $stderr, env: {})
 
-      shellwords = *Command.clean(string).shellsplit
-
       @env = env
       @redirection = { in: input, out: output, err: error }
       @string = string
       @kind = lookup_kind(string.split(' ')[0])
-
-      @command, *@args = shellwords
-      @argv = shellwords
+      @argv = *Command.clean(string).shellsplit
 
       case
       when builtin?
+        magic!
       when executable?
         alias!
         glob!
+        magic!
       end
 
       @process = create!
@@ -37,6 +39,8 @@ module Kush
       Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history) || !executable?
     end
 
+    private # __________________________________________________________________
+
     # Swap the command with the aliased command if found
     def alias!
       if Builtin.enabled?(:alias) && Builtin::Alias.exist?(@argv[0])
@@ -47,16 +51,30 @@ module Kush
 
     # Swaps the globbable elements with the globbed results, flattening the result
     def glob!
-      command = @argv.shift
-      @argv.map! { |arg| GLOBBABLE.any? { |g| arg.include?(g) } ? Dir.glob(arg) : arg }.flatten!
-      @argv.unshift(command)
+      args_only do
+        @argv.map! { |arg| GLOBBABLE.any? { |g| arg.include?(g) } ? Dir.glob(arg) : arg }.flatten!
+      end
+    end
+
+    def magic!
+      args_only do
+        @argv.map! { |arg| arg.chars.map! { magic?(arg) ? MAGIC[arg] : arg }.first }
+      end
     end
 
     def self.clean(string)
       string.squeeze(' ').chomp
     end
 
-    private
+    def magic?(char)
+      MAGIC.keys.include?(char)
+    end
+
+    def args_only
+      command = @argv.shift
+      yield
+      @argv.unshift(command)
+    end
 
     def create!
       case
@@ -85,7 +103,7 @@ module Kush
     end
 
     def lookup_kind(command)
-      if Builtin.enabled?(command)
+      if Builtin.active?(command)
         :builtin
       elsif Shell.unsafe? && executable_in_path?(command)
         :executable

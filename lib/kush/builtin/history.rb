@@ -40,7 +40,7 @@ module Kush
       end
 
       def self.add(line)
-        list.insert(line.chomp.strip) unless list.last && list.last.chomp.strip == line.chomp.strip
+        @@list.insert(line.chomp.strip) unless list.last && list.last.chomp.strip == line.chomp.strip
       end
 
       def self.reset_position
