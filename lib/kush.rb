@@ -6,9 +6,9 @@ require 'set'
 require_relative 'kush/globals'
 require_relative 'kush/utils'
 require_relative 'kush/command'
+require_relative 'kush/input'
 require_relative 'kush/prompt'
 require_relative 'kush/line'
-require_relative 'kush/keycodes'
 require_relative 'kush/refinements/string_extensions'
 require_relative 'kush/refinements/hash_extensions'
 require_relative 'kush/builtin_utils'
@@ -17,16 +17,12 @@ require_relative 'kush/builtin'
 module Kush
   class Shell
 
-    using    Refinements::HashExtensions
-
     extend   Utils
     extend   Builtin
     extend   Prompt
 
     include  Globals
     include  Keycodes
-
-    attr_accessor :history
 
     CONFIG = {
       rc: '.kushrc',
@@ -36,7 +32,7 @@ module Kush
 
     def initialize
       Builtin.load_all!(CONFIG)
-      reset_input
+      Input.reset!
       set_traps!
       prompt!
       repl
@@ -47,7 +43,7 @@ module Kush
     def repl
       loop do
         read!
-        evaluate(@input) if @input.end_with?(KEY_CR)
+        evaluate(Input.current) if Input.complete?
       end
     rescue StandardError => exception
       handle_exception(exception)
@@ -62,18 +58,18 @@ module Kush
     def read!
       STDIN.echo = false
       STDIN.raw!
-      input = STDIN.getc.chr
+      char = STDIN.getc.chr
     ensure
       STDIN.echo = true
       STDIN.cooked!
-      handle input
+      Input.handle(char)
     end
 
     def evaluate(string)
       return if string.chomp.empty?
       Line.new(string).execute!
     ensure
-      reset_input
+      Input.reset!
       Builtin::History.reset_position
       prompt!
     end
@@ -86,68 +82,6 @@ module Kush
       puts # Newline
       puts exception.message.color(:red)
       puts exception.backtrace if $backtrace
-    end
-
-    def handle(input)
-      case input
-      when KEY_ESC
-        handle_escape(input)
-      when KEY_CR
-        @input << input
-        puts
-      when KEY_ETX
-        reset_input
-        puts '^C'.color(:purple).italic
-        prompt!
-      when KEY_EOT
-        puts '^D'.color(:purple).italic
-        Shell.quit!
-      when GLYPH_TILDE
-        print input.color(:blue).bright
-        @input << input
-      when KEY_DEL
-        erase unless @input.empty?
-      when KEY_TAB
-        write_input Builtin::Completion.complete_all(@input).first unless @input.empty?
-      when GLYPH_BULLET, GLYPH_LSAQUO, GLYPH_RSAQUO, GLYPH_LAQUO, GLYPH_RAQUO # IO redirection
-        print input.color(:cyan)
-        @input << input
-      else # Regular printable
-        print input
-        @input << input
-      end
-      input
-    end
-
-    def handle_escape(input)
-      input << STDIN.read_nonblock(3) rescue nil
-      input << STDIN.read_nonblock(2) rescue nil
-      case input
-      when ANSI_UP
-        write_input Builtin::History.navigate(:up)
-      when ANSI_DOWN
-        write_input Builtin::History.navigate(:down)
-      end
-    end
-
-    def erase(n=1)
-      n.times { @input.chop! }
-      $stdout.print ("\b" * n) + (" " * n) + ("\b" * n);
-    end
-
-    def erase_input
-      erase @input.size
-    end
-
-    def reset_input
-      @input = ""
-    end
-
-    def write_input(string)
-      return unless string
-      erase_input
-      @input = string.chomp
-      print @input
     end
 
     def self.toggle_safe!
@@ -167,7 +101,7 @@ module Kush
       Builtin::History.save!(CONFIG[:history])
       STDOUT.flush
       STDERR.flush
-      puts 'Quitting...' if $debug
+      puts 'Quitting...' if $verbose
       exit
     end
   end

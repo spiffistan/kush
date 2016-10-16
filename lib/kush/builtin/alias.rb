@@ -3,11 +3,11 @@ require 'optparse'
 module Kush
   module Builtin
     module Alias
-      extend self
 
+      extend  self
       extend  BuiltinUtils
       extend  Utils
-      include Keycodes
+      include Glyphs
 
       def self.execute!(*args)
         args = merge_args(*args)
@@ -15,19 +15,19 @@ module Kush
         key, value = args.split('=').map(&:strip)
         botch! "Key not valid: #{key}" unless key =~ (/^[a-zA-Z]+$/)
         botch! "Value not valid: #{value}" unless value && !value.empty?
-        aliases[key.to_sym] = Command.clean(value)
+        aliases[key] = Command.clean(value)
       end
 
       def self.exist?(name)
-        aliases.has_key?(name.to_sym)
+        name && aliases.has_key?(name)
       end
 
       def self.[](name)
-        aliases[name.to_sym]
+        aliases[name]
       end
 
       def self.list
-        Shell.info 'No aliases' if aliases.empty?
+        info 'No aliases' if aliases.empty?
         aliases.map { |k,v| "#{k} #{GLYPH_RSAQUO.color(:cyan)} #{v}" }
       end
 

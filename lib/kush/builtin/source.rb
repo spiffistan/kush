@@ -3,6 +3,7 @@ module Kush
     module Source
       extend self
       extend Utils
+      extend BuiltinUtils
 
       def self.execute!(*args)
         args.each { |file| load! file }

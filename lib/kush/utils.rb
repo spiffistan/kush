@@ -1,9 +1,9 @@
-require_relative 'keycodes'
+require_relative 'glyphs'
 
 module Kush
   module Utils
 
-    include Keycodes
+    include Glyphs
 
     def cwd_git_dir?
       File.basename(%x(git rev-parse --git-dir 2>/dev/null).chomp) == '.git'

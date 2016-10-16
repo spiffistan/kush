@@ -18,7 +18,7 @@ module Kush
     def self.formatted!
       prompt = PS1.dup
       PROMPT_VARS.each do |k, v|
-        prompt.gsub! "$#{k}", v.respond_to?(:call) ? v.call || '' : v
+        prompt.gsub! "$#{k}", v.respond_to?(:call) ? v.call : v
       end
       prompt
     end

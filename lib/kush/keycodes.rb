@@ -1,18 +1,6 @@
 module Kush
   module Keycodes
 
-    GLYPH_DOT = '·'
-    GLYPH_BULLET = '•'
-    GLYPH_LSAQUO = '‹'
-    GLYPH_RSAQUO = '›'
-    GLYPH_LAQUO = '«'
-    GLYPH_RAQUO = '»'
-    GLYPH_BAR = '¦'
-    GLYPH_LANGLE = '⟨'
-    GLYPH_RANGLE = '⟩'
-    GLYPH_EOT='⌁'
-    GLYPH_TILDE='~'
-
     ASCII_SPECIALS = {
       NUL: 0x00, # Null
       SOH: 0x01, # Start of heading
@@ -82,9 +70,5 @@ module Kush
     end
 
     OSC_LEADER = "#{KEY_ESC}]"
-
-
-
-    ITEM_SEP = " #{GLYPH_BULLET} ".color(:cyan)
   end
 end

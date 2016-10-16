@@ -34,6 +34,7 @@ module Kush
     end
 
     def spawn!
+      Shell.debug 'Result: '.bright + @argv.join(' ')
       pid = @process.call
       Process.wait(pid) if executable?
       Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history) || !executable?
@@ -93,12 +94,8 @@ module Kush
     def executable_in_path?(command)
       @env['PATH'].split(':').each do |path|
         file = "#{path}/#{command}"
-        found = File.exist?(file) && File.executable?(file)
-        Shell.deep_debug("Checking: #{file}")
-        Shell.debug("Found: #{file}") if found
-        return true if found
+        return true if File.exist?(file) && File.executable?(file)
       end
-      Shell.deep_debug("Not found: #{command}")
       false
     end
 

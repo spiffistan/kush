@@ -29,11 +29,10 @@ module Kush
       'exec'     => Exec,
       'safe'     => Safe,
       'set'      => Setenv,
-      'source'   => Source,
+      'src'      => Source,
       'aka'      => Alias,
       'j'        => Jumper,
       'hist'     => History,
-      'als'      => Alias,
       'path'     => -> { Shell.info ENV['PATH'].split(':') }
     }.freeze
 
@@ -82,11 +81,11 @@ module Kush
     end
 
     def self.list_all
-      Shell.info BUILTINS.keys.map { |builtin|
+      Shell.info BUILTINS.keys.map do |builtin|
         b = builtin.color(:red).underline if disabled?(builtin)
         b = builtin.color(:cyan).underline if protected?(builtin)
         b ? b : builtin
-      }.join(ITEM_SEP.color(:cyan))
+      end.join(ITEM_SEP.color(:cyan))
     end
 
     private # __________________________________________________________________
