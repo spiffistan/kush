@@ -1,6 +1,7 @@
 module Kush
   module Builtin
     module Source
+
       extend self
       extend Utils
       extend BuiltinUtils
@@ -14,7 +15,7 @@ module Kush
       def self.load!(file)
         verbose "Sourcing #{file}..."
         Dir.chdir(ENV['HOME']) do
-          botch! "File #{file} does not exist" unless File.exist?(file)
+          botch! "Cannot source #{file}: no such file" unless File.exist?(file)
           File.readlines(file).map do |line|
             Line.new(line).execute!
           end

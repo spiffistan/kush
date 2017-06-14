@@ -42,8 +42,8 @@ module Kush
     # line ending with carriage return.
     def repl
       loop do
-        read!
-        evaluate(Input.current) if Input.complete?
+        Input.read!
+        evaluate(Input.buffer) if Input.complete?
       end
     rescue StandardError => exception
       handle_exception(exception)
@@ -52,17 +52,7 @@ module Kush
     end
 
     def prompt!
-      print Prompt.formatted!
-    end
-
-    def read!
-      STDIN.echo = false
-      STDIN.raw!
-      char = STDIN.getc.chr
-    ensure
-      STDIN.echo = true
-      STDIN.cooked!
-      Input.handle(char)
+      Input.write Prompt.formatted!
     end
 
     def evaluate(string)

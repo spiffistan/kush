@@ -18,7 +18,7 @@ module Kush
       def self.add(path)
         absolute_path = File.absolute_path(path)
         return unless File.stat(absolute_path).directory? && !ignore?(absolute_path)
-        Shell.verbose "Added #{absolute_path} to jump db (popularity was #{jumps[absolute_path] || 0})"
+        Shell.debug "Added #{absolute_path} to jump db (popularity was #{jumps[absolute_path] || 0})"
         jumps[absolute_path] = (jumps[absolute_path] || 1) + 1
       end
 

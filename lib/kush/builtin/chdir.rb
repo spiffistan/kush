@@ -4,7 +4,7 @@ module Kush
       extend self
 
       def self.execute!(directory = ENV['HOME'])
-        Jumper.add(directory) if Builtin.enabled?(:jumper)
+        Jumper.add(directory) if Builtin.active?(:jumper)
         Dir.chdir(directory)
         print Shell.title!
       end

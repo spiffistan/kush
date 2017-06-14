@@ -31,7 +31,7 @@ module Kush
       'set'      => Setenv,
       'src'      => Source,
       'aka'      => Alias,
-      'j'        => Jumper,
+      'jump'     => Jumper,
       'hist'     => History,
       'path'     => -> { Shell.info ENV['PATH'].split(':') }
     }.freeze

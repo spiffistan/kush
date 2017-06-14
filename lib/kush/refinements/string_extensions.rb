@@ -13,6 +13,15 @@ module Kush
         def rpad(n=1, chr=' ')
           self + chr * n
         end
+
+        def maulin! n
+          slice! n
+          self
+        end
+
+        def maulin n
+          dup.maulin! n
+        end
       end
     end
   end

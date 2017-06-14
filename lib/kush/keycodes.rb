@@ -63,6 +63,7 @@ module Kush
     }.freeze
     private_constant :ANSI_ESCAPES
 
+
     # Loops through the previous hash and sets convenience key constants
     # of the form ANSI_UP, ANSI_CLEAR_EOL, etc.
     ANSI_ESCAPES.each do |k,v|

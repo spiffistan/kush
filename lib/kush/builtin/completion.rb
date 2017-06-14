@@ -1,3 +1,5 @@
+require 'abbrev'
+
 module Kush
   module Builtin
     module Completion

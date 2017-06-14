@@ -1,14 +1,32 @@
 require_relative 'keycodes'
 require_relative 'glyphs'
+require_relative 'cursor'
+require_relative 'refinements/string_extensions'
 
 module Kush
   module Input
 
     include  Keycodes
     include  Glyphs
+    extend   Cursor
+    using    Refinements::StringExtensions
 
-    def self.current
-      @@current ||= ''
+    def self.buffer
+      @@buffer ||= String.new
+    end
+
+    def self.position
+      @@position ||= 0
+    end
+
+    def self.read!
+      STDIN.echo = false
+      STDIN.raw!
+      char = STDIN.getc.chr
+    ensure
+      STDIN.echo = true
+      STDIN.cooked!
+      handle char
     end
 
     def self.handle(char)
@@ -16,7 +34,8 @@ module Kush
       when KEY_ESC
         handle_escape(char)
       when KEY_CR
-        current << char
+        reposition!
+        eat! char
         writeln
       when KEY_ETX
         reset!
@@ -26,18 +45,18 @@ module Kush
         writeln '^D'.color(:purple).italic
         Shell.quit!
       when KEY_DEL
-        erase unless current.empty?
+        erase unless min? || buffer.empty?
       when KEY_TAB
-        rewrite! Builtin::Completion.complete_all(current).first unless current.empty?
+        rewrite! Builtin::Completion.complete_all(buffer).first unless buffer.empty?
       when GLYPH_BULLET, GLYPH_LSAQUO, GLYPH_RSAQUO, GLYPH_LAQUO, GLYPH_RAQUO # IO redirection
         write char.color(:cyan).bright
-        current << char
+        eat! char
       when GLYPH_TILDE # Magic characters
         write char.color(:blue).bright
-        current << char
+        eat! char
       else # Regular printable
         write char
-        current << char
+        eat! char
       end
     end
 
@@ -50,35 +69,87 @@ module Kush
         rewrite! Builtin::History.navigate(:up) if Builtin.enabled?(:hist)
       when ANSI_DOWN
         rewrite! Builtin::History.navigate(:down) if Builtin.enabled?(:hist)
+      when ANSI_BACK
+        unless min?
+          write ANSI_BACK
+          decr!
+        end
+      when ANSI_FORWARD
+        unless max?
+          write ANSI_FORWARD
+          incr!
+        end
       end
     end
 
     def self.erase(n=1)
-      n.times { current.chop! }
-      write ("\b" * n) + (" " * n) + ("\b" * n);
+      n.times { erase_at(position-1) }
+      write ("\b" * n) + (" " * n) + ("\b" * n)
+      write @@buffer[position..-1]
+      # write "\b \b"
     end
 
     def self.erase!
-      erase current.size
+      erase buffer.size
     end
 
     def self.write!
-      write current
+      write buffer
     end
 
     def self.writeln!
-      writeln current
+      writeln buffer
+    end
+
+    def self.erase_at(pos)
+      @@buffer = @@buffer.maulin!(pos)
+      # redraw!
+      # rewrite!
     end
 
     def self.reset!
-      @@current = ''
+      @@buffer = String.new
+      @@position = 0
     end
 
     def self.complete?
-      current.end_with?(KEY_CR)
+      buffer.end_with?(KEY_CR)
     end
 
     private
+
+    def self.eat!(char)
+      if max?
+        @@buffer << char
+        incr!
+      else
+        @@buffer = @@buffer.insert(position, char)
+      end
+    end
+
+    def self.max?
+      @@position >= @@buffer.size
+    end
+
+    def self.min?
+      @@position <= 0
+    end
+
+    def self.incr!
+      @@position += 1 unless max?
+    end
+
+    def self.decr!
+      @@position -= 1 unless min?
+    end
+
+    def self.rewind!
+      @@position = 0
+    end
+
+    def self.reposition!
+      @@position = @@buffer.chomp.size
+    end
 
     def self.write(string)
       STDOUT.print string
@@ -86,12 +157,21 @@ module Kush
 
     def self.writeln(string=nil)
       STDOUT.puts string
+      rewind!
+    end
+
+    def self.redraw!
+      write ANSI_CUB(position)
+      write ANSI_CLEAR_EOL
+      write @@buffer
+      write ANSI_CUF(position)
     end
 
     def self.rewrite!(string)
       return unless string
       erase!
-      @@current = string.chomp
+      @@buffer = string.chomp
+      reposition!
       write!
     end
   end

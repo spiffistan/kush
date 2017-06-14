@@ -4,22 +4,21 @@ require 'shellwords'
 module Kush
   class Command
 
-    GLOBBABLE = %w(* ** { } [ ] ? \\) # NOTE: Slash is escaped
+    GLOBBABLE = %w(* ** { } [ ] ? \\) # NOTE: Backslash is escaped
 
     MAGIC = {
       '~' => ENV['HOME']
     }
 
-    attr_reader :command, :args, :kind, :process
-    attr_reader :redirection, :env
+    attr_reader :kind, :process, :redirection, :env
 
     def initialize(string, input: $stdin, output: $stdout, error: $stderr, env: {})
 
+      @raw = string
       @env = env
       @redirection = { in: input, out: output, err: error }
-      @string = string
-      @kind = lookup_kind(string.split(' ')[0])
-      @argv = *Command.clean(string).shellsplit
+      @argv = Shellwords.shellsplit Command.clean(string)
+      @kind = lookup_kind(@argv[0])
 
       case
       when builtin?
@@ -37,7 +36,7 @@ module Kush
       Shell.debug 'Result: '.bright + @argv.join(' ')
       pid = @process.call
       Process.wait(pid) if executable?
-      Builtin::History.add(@string) if $? == 0 && Builtin.enabled?(:history) || !executable?
+      Builtin::History.add(@raw) if $? == 0 && Builtin.enabled?(:history) || !executable?
     end
 
     private # __________________________________________________________________
@@ -57,6 +56,7 @@ module Kush
       end
     end
 
+    # Swaps magic characters with their equivalents
     def magic!
       args_only do
         @argv.map! { |arg| arg.chars.map! { magic?(arg) ? MAGIC[arg] : arg }.first }
@@ -87,7 +87,7 @@ module Kush
         proc { Process.spawn(@env, *@argv, @redirection) }
       else
         Shell.debug 'Kind: ruby'
-        proc { puts eval(@string.chomp) }
+        proc { puts eval(@raw.chomp) }
       end
     end
 
