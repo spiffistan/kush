@@ -86,7 +86,6 @@ module Kush
       n.times { erase_at(position-1) }
       write ("\b" * n) + (" " * n) + ("\b" * n)
       write @@buffer[position..-1]
-      # write "\b \b"
     end
 
     def self.erase!
@@ -103,6 +102,7 @@ module Kush
 
     def self.erase_at(pos)
       @@buffer = @@buffer.maulin!(pos)
+      decr!
       # redraw!
       # rewrite!
     end
@@ -136,7 +136,7 @@ module Kush
     end
 
     def self.incr!
-      @@position += 1 unless max?
+      @@position += 1 #unless max?
     end
 
     def self.decr!

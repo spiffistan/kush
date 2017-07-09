@@ -15,15 +15,19 @@ module Kush
     end
 
     def deep_debug(text)
-      info(text, STDERR, :red) if $deep_debug
+      info(text, STDERR, :green) if Config.deep_debug
     end
 
     def debug(text)
-      info(text, STDERR, :yellow) if $debug
+      info(text, STDERR, :blue) if Config.debug
     end
 
     def verbose(text)
-      info(text, STDERR, :white) if $verbose
+      info(text, STDERR, :white) if Config.verbose
+    end
+
+    def warning(text)
+      info('WARNING: '.bold + text, STDERR, :red) unless Config.suppress_warnings
     end
 
     def info(text, io=STDOUT, color=:cyan)

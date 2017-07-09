@@ -3,7 +3,7 @@ require 'rainbow/ext/string'
 require 'shellwords'
 require 'set'
 
-require_relative 'kush/globals'
+require_relative 'kush/config'
 require_relative 'kush/utils'
 require_relative 'kush/command'
 require_relative 'kush/input'
@@ -21,17 +21,16 @@ module Kush
     extend   Builtin
     extend   Prompt
 
-    include  Globals
     include  Keycodes
 
-    CONFIG = {
+    FILES = {
       rc: '.kushrc',
       history: '.kush_history',
       jumper: '.kush_jumpdb'
     }
 
     def initialize
-      Builtin.load_all!(CONFIG)
+      Builtin.load_all!(FILES)
       Input.reset!
       set_traps!
       prompt!
@@ -45,8 +44,9 @@ module Kush
         Input.read!
         evaluate(Input.buffer) if Input.complete?
       end
-    rescue StandardError => exception
+    rescue StandardError, SyntaxError => exception
       handle_exception(exception)
+    ensure
       prompt!
       repl
     end
@@ -69,29 +69,35 @@ module Kush
     end
 
     def handle_exception(exception)
+      case exception
+      when SyntaxError
+      when StandardError
+      else
+      end
       puts # Newline
       puts exception.message.color(:red)
-      puts exception.backtrace if $backtrace
+      puts exception.backtrace if Config.backtrace
     end
 
-    def self.toggle_safe!
-      $safe = !$safe
+    def self.toggle_safety!
+      Config.safety = !Config.safety
     end
 
     def self.unsafe?
-      !$safe
+      !Config.safety
     end
 
     def self.title!
+      OSC_LEADER + '7' + ';' + 'file://' + Dir.pwd + KEY_BEL
       OSC_LEADER + '6' + ';' + 'file://' + Dir.pwd + KEY_BEL
     end
 
     def self.quit!
-      Builtin::Jumper.save!(CONFIG[:jumper])
-      Builtin::History.save!(CONFIG[:history])
+      Builtin::Jumper.save!(FILES[:jumper])
+      Builtin::History.save!(FILES[:history])
       STDOUT.flush
       STDERR.flush
-      puts 'Quitting...' if $verbose
+      puts 'Quitting...' if Config.verbose
       exit
     end
   end

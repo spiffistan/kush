@@ -4,9 +4,9 @@ module Kush
       extend self
 
       def self.execute!
-        Shell.toggle_safe!
-        Shell.info "Safety #{$safe ? :on : :off}!"
-        Shell.verbose "The shell will #{$safe ? 'not'.underline : 'now' } run executables"
+        Shell.toggle_safety!
+        Shell.info "Safety #{Config.safety ? :on : :off}!"
+        Shell.verbose "The shell will #{Config.safety ? 'not'.underline : 'now' } run executables"
       end
     end
   end

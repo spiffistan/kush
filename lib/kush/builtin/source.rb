@@ -17,7 +17,7 @@ module Kush
         Dir.chdir(ENV['HOME']) do
           botch! "Cannot source #{file}: no such file" unless File.exist?(file)
           File.readlines(file).map do |line|
-            Line.new(line).execute!
+            Line.new(line, system: true).execute!
           end
         end
       end

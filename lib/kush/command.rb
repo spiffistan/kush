@@ -36,7 +36,6 @@ module Kush
       Shell.debug 'Result: '.bright + @argv.join(' ')
       pid = @process.call
       Process.wait(pid) if executable?
-      Builtin::History.add(@raw) if $? == 0 && Builtin.enabled?(:history) || !executable?
     end
 
     private # __________________________________________________________________

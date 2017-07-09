@@ -6,13 +6,17 @@ module Kush
     include Kush::Keycodes
 
     attr_reader :commands
+    attr_reader :raw
 
-    def initialize(string)
-      parse string
+    def initialize(string, opts = {})
+      @opts = opts
+      @raw = string
+      parse @raw
     end
 
     def execute!
       @commands.map(&:spawn!)
+      Builtin::History.add(@raw) if Builtin.enabled?(:history) && !@opts[:system]
     end
 
     private

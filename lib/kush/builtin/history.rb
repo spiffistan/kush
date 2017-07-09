@@ -1,25 +1,46 @@
+require 'date'
+
 module Kush
   module Builtin
     module History
 
       extend self
 
+      class Item
+        attr_reader :timestamp, :command
+
+        def initialize(timestamp, command)
+          @timestamp = timestamp
+          @command = command
+        end
+
+        def to_s
+          "#{@timestamp} #{@command}"
+        end
+      end
+
       def self.execute!(*args)
-        Shell.info last(100)
+        last(Config.history_lines).each do |item|
+          Shell.info("%s: %s" % [item.timestamp, item.command])
+        end
       end
 
       def self.load!(file)
-        @@list = []
         Dir.chdir(ENV['HOME']) do
-          @@list = File.readlines(file).reject { |line| line.chomp.strip.empty? } if File.exist?(file)
+          return unless File.exist?(file)
+          File.readlines(file).reject { |line| line.strip.empty? }.each_with_index do |line, n|
+            timestamp, command = line.split(' ')
+            Shell.warning("History not loaded. Malformed history at #{file} line #{n}") and return unless timestamp && command
+            list << Item.new(DateTime.parse(timestamp), command)
+          end
         end
         reset_position
       end
 
       def self.save!(file)
         Dir.chdir(ENV['HOME']) do
-          content = @@list.compact.reject { |item| item.chomp.strip.empty? }.join("\n")
-          File.open(file, 'w') { |f| f.write(content + "\n") }
+          content = list.compact.sort_by(&:timestamp).join("\n")
+          File.open(file, 'w') { |f| f.write(content) }
         end
       end
 
@@ -29,18 +50,18 @@ module Kush
         when :up
           unless position - 1 < 0
             @@position -= 1
-            list[position]
+            list[position].command
           end
         when :down
           unless position + 1 > list.size
             @@position += 1
-            list[position]
+            list[position].command
           end
         end
       end
 
       def self.add(line)
-        @@list.insert(line.chomp.strip) unless list.last && list.last.chomp.strip == line.chomp.strip
+        @@list << Item.new(DateTime.now, line.strip) unless list.last && list.last.command.strip == line.strip
       end
 
       def self.reset_position
@@ -54,7 +75,7 @@ module Kush
       end
 
       def self.position
-        @@position ||= @@list.size
+        @@position ||= list.size
       end
 
       def self.clear

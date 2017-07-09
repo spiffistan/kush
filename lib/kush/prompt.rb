@@ -11,7 +11,7 @@ module Kush
     PROMPT_VARS = {
       CWD: -> { Dir.pwd },
       DIR: -> { File.basename(Dir.getwd) },
-      LAMBDA: -> { λ = 'λ'; λ = λ.underline if $safe; λ },
+      LAMBDA: -> { λ = 'λ'; λ = λ.underline if Config.safety; λ },
       GIT_BRANCH: -> { return unless cwd_git_dir?; %x(git symbolic-ref --short HEAD).chomp.rpad }
     }
 
